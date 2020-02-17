@@ -62,8 +62,8 @@ class TarjanAlgorithmSimpleTest extends FlatSpec with Matchers {
     assert(g.hasCycle)
   }
 
-  "Tarjan BigGrahp 1000+ edges" should "report AN algebraic loop" ignore {
-    val alotOfEdges = generateEdges(1000) ++ ISZ(Edge(1000, Set.empty ++ ISZ(1)))
+  "Tarjan BigGrahp 1000+ edges" should "report AN algebraic loop" in {
+    val alotOfEdges = generateEdges(10000) ++ ISZ(Edge(10000, Set.empty ++ ISZ(1)))
     val g = new TarjanGraph[Z](alotOfEdges.elements)
     assert(g.hasCycle)
   }

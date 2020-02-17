@@ -3,16 +3,50 @@
 import org.sireum._
 import org.sireum.ops.{ISZOps, MSZOps}
 
-import scala.collection.mutable
-
 @datatype class Edge[A](from: A, to: Set[A])
 
 @record class TarjanGraph[A](src: ISZ[Edge[A]]) {
 
+  @pure def inLoop(fromNode: A, targetNode: A, edges: ISZ[Edge[A]]): Boolean = {
+    //Connection from node we are searching from to targetNode
+    ISZOps(edges).exists(e => e.from == fromNode && e.to == targetNode) ||
+      Exists(edges.filter(e => e.from == fromNode).flatMap(x => x.to.elements))(newStartNode => inLoop(newStartNode, targetNode, edges))
+
+    // Base case There is a direct edge from fromNode to target
+    // \E e1, e2 \in nodes * e1 == e2 /\ Edge(e1,e2)
+
+    // Inductive case - there is an edge that leads from any of the nodes that you can get to from the A(frontNode) back to A (target node)
+    // \E
+  }
+
   //Linear over number of veritices and edges: O(V + E)
   @pure def tarjanAlgo(edges: ISZ[Edge[A]]): MSZ[MSZ[A]] = {
     Contract(
-      Requires(edges.nonEmpty)
+      Case("No loops in graph",
+        Requires(
+          edges.nonEmpty &&
+            //It is fine to only look at from nodes since all other vertices in graph
+            //does not have an outgoing edge
+            !Exists(edges.map(x => x.from))(x => inLoop(x, x, edges))),
+        Ensures(
+          //A list inside the nested result list should have a length of one (No SCC)
+          All(Res[MSZ[MSZ[A]]])(l => l.size == Z(1)) &&
+          // All elements in the list should be unique
+            Z(Res[MSZ[MSZ[A]]].elements.distinct.length) == Res[MSZ[MSZ[A]]].length &&
+            //The outer list of the result list should have the same length as the number of nodes in the graph
+            Res[MSZ[MSZ[A]]].length == (Set.empty[A] ++ edges.map(x => x.from) ++ edges.flatMap(x => x.to.elements)).size
+        )
+      ),
+      Case("Loops in graph",
+        Requires(
+          edges.nonEmpty &&
+            //It is fine to only look at from nodes since all other vertices in graph
+            //does not have an outgoing edge
+            //There should exist at least one node that is a part of a loop
+            Exists(edges.map(x => x.from))(x => inLoop(x, x, edges))),
+        Ensures()
+      )
+      //Ensures(All(Res[MSZ[MSZ[A]]].flatMap(x => x.asInstanceOf[MSZ[A]]))(e => edges.elements.contains(e)))
       //Ensures(All(Res[MSZ[MSZ[A]]].indices)(i => All(Res[MSZ[MSZ[A]]](i).indices)(j => Exists(edges.elements.combinations().indices)(e => e))))
       //Res[MSZ[MSZ[A]]](i).indices)(j => )))
       //Ensures(All(Res[MSZ[MSZ[A]]].elements)(e => e.))
