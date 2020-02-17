@@ -31,25 +31,28 @@ import org.sireum.ops.{ISZOps, MSZOps}
         Ensures(
           //A list inside the nested result list should have a length of one (No SCC)
           All(Res[MSZ[MSZ[A]]])(l => l.size == Z(1)) &&
-          // All elements in the list should be unique
+            // All elements in the list should be unique
             Z(Res[MSZ[MSZ[A]]].elements.distinct.length) == Res[MSZ[MSZ[A]]].length &&
             //The outer list of the result list should have the same length as the number of nodes in the graph
-            Res[MSZ[MSZ[A]]].length == (Set.empty[A] ++ edges.map(x => x.from) ++ edges.flatMap(x => x.to.elements)).size
+            Res[MSZ[MSZ[A]]].length == nodesInSystem(edges)
         )
       ),
       Case("Loops in graph",
         Requires(
           edges.nonEmpty &&
-            //It is fine to only look at from nodes since all other vertices in graph
-            //does not have an outgoing edge
-            //There should exist at least one node that is a part of a loop
+            //There should exist at least one node that is a part of a loop<
             Exists(edges.map(x => x.from))(x => inLoop(x, x, edges))),
-        Ensures()
+        Ensures(
+          //All elements in a nested list (SCC) with a length >= 2 should be a part of a loop
+          All(Res[MSZ[MSZ[A]]].filter(x => x.length >= 2).flatMap(x => x))(e => inLoop(e, e, edges)) &&
+            //All elements that a not a part of a SCC (length < 2) should not be in a loop
+            All(Res[MSZ[MSZ[A]]].filter(x => x.length < 2).flatMap(x => x))(e => !inLoop(e, e, edges)) &&
+            //All nodes in the graph should be represented in the final result
+            nodesInSystem(edges) == Res[MSZ[MSZ[A]]].flatMap(x => x).length
+            // TODO: Add post condition to make sure that all loops in the graph have been detected
+            //  this means that the right numbers of loops/SCC (length >= 2) are found and put in the result
+        )
       )
-      //Ensures(All(Res[MSZ[MSZ[A]]].flatMap(x => x.asInstanceOf[MSZ[A]]))(e => edges.elements.contains(e)))
-      //Ensures(All(Res[MSZ[MSZ[A]]].indices)(i => All(Res[MSZ[MSZ[A]]](i).indices)(j => Exists(edges.elements.combinations().indices)(e => e))))
-      //Res[MSZ[MSZ[A]]](i).indices)(j => )))
-      //Ensures(All(Res[MSZ[MSZ[A]]].elements)(e => e.))
     )
     var s = MSZ[A]() //Stack to keep track of nodes reachable from current node
     var index = Map.empty[A, Z] //index of each node
@@ -95,6 +98,10 @@ import org.sireum.ops.{ISZOps, MSZOps}
     return ret
   }
 
+
+  def nodesInSystem(edges: ISZ[Edge[A]]):Z = {
+    return (Set.empty[A] ++ edges.map(x => x.from) ++ edges.flatMap(x => x.to.elements)).size
+  }
 
   val tarjan: MSZ[MSZ[A]] = tarjanAlgo(src)
 
