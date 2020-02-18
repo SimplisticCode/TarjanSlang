@@ -9,7 +9,7 @@ import org.sireum.ops.{ISZOps, MSZOps}
 
   @pure def inLoop(fromNode: A, targetNode: A, edges: ISZ[Edge[A]]): Boolean = {
     //Connection from node we are searching from to targetNode
-    ISZOps(edges).exists(e => e.from == fromNode && e.to == targetNode) ||
+    edges.filter(e => e.from == fromNode && e.to.contains(targetNode)).nonEmpty ||
       Exists(edges.filter(e => e.from == fromNode).flatMap(x => x.to.elements))(newStartNode => inLoop(newStartNode, targetNode, edges))
 
     // Base case There is a direct edge from fromNode to target
@@ -114,7 +114,7 @@ import org.sireum.ops.{ISZOps, MSZOps}
         Requires(
           edges.nonEmpty &&
             Exists(edges.map(x => x.from))(x => inLoop(x, x, edges))),
-        Ensures(Res[ISZ[A]])
+        Ensures(Res[ISZ[A]].isEmpty)
       ),
       Case("Graphs contains no loops",
         Requires(
