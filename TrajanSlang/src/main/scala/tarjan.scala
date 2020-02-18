@@ -49,8 +49,8 @@ import org.sireum.ops.{ISZOps, MSZOps}
             All(Res[MSZ[MSZ[A]]].filter(x => x.length < 2).flatMap(x => x))(e => !inLoop(e, e, edges)) &&
             //All nodes in the graph should be represented in the final result
             nodesInSystem(edges) == Res[MSZ[MSZ[A]]].flatMap(x => x).length
-            // TODO: Add post condition to make sure that all loops in the graph have been detected
-            //  this means that the right numbers of loops/SCC (length >= 2) are found and put in the result
+          // TODO: Add post condition to make sure that all loops in the graph have been detected
+          //  this means that the right numbers of loops/SCC (length >= 2) are found and put in the result
         )
       )
     )
@@ -99,7 +99,7 @@ import org.sireum.ops.{ISZOps, MSZOps}
   }
 
 
-  def nodesInSystem(edges: ISZ[Edge[A]]):Z = {
+  def nodesInSystem(edges: ISZ[Edge[A]]): Z = {
     return (Set.empty[A] ++ edges.map(x => x.from) ++ edges.flatMap(x => x.to.elements)).size
   }
 
@@ -107,6 +107,35 @@ import org.sireum.ops.{ISZOps, MSZOps}
 
   val hasCycle: Boolean = tarjan.elements.exists(c => c.size >= 2)
   val tarjanCycle: Seq[MSZ[A]] = tarjan.elements.filter(c => c.size >= 2).distinct.map(c => c)
+
+  def topologicalSort(edges: ISZ[Edge[A]]): ISZ[A] = {
+    Contract(
+      Case("Graph contains cycles so a topological ordering cannot be found. The function shall instead return a list with all the SCC/loops",
+        Requires(
+          edges.nonEmpty &&
+            Exists(edges.map(x => x.from))(x => inLoop(x, x, edges))),
+        Ensures(Res[ISZ[A]])
+      ),
+      Case("Graphs contains no loops",
+        Requires(
+          edges.nonEmpty &&
+            !Exists(edges.map(x => x.from))(x => inLoop(x, x, edges))),
+        Ensures(
+          //There should be no element at an index > n, that has a connection to a component placed at index n
+          All(Res[ISZ[A]].indices)(n => !Exists(Res[ISZ[A]].indices)(j => j > n && inLoop(Res[ISZ[A]](j), Res[ISZ[A]](n), edges))) &&
+            //All elements/vertices in the graph should be in the resulting list
+            Res[MSZ[MSZ[A]]].length == nodesInSystem(edges)
+        )
+      )
+    )
+    if (hasCycle) {
+      return ISZ[A]()
+    }
+    else {
+      return MSZOps(tarjan.flatMap(x => x)).reverse.toIS
+    }
+  }
+
   /*
     lazy val topologicalSort: IODependencyResult =
       if (hasCycle) IODependencyCyclic(trajanCycle.map(o=> o.reverse.mkString("Cycle: "," -> ", " -> " + o.reverse.head.toString)).mkString("\n"))
