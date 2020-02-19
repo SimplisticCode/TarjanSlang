@@ -5,7 +5,7 @@ import org.sireum.ops.{ISZOps, MSZOps}
 
 @datatype class Edge[A](from: A, to: Set[A])
 
-@record class TarjanGraph[A](src: ISZ[Edge[A]]) {
+@record class TarjanGraphNoMaps[A](src: ISZ[Edge[A]]) {
 
   @pure def inLoop(fromNode: A, targetNode: A, edges: ISZ[Edge[A]]): B = {
     //Connection from node we are searching from to targetNode
@@ -54,15 +54,16 @@ import org.sireum.ops.{ISZOps, MSZOps}
         )
       )
     )
+    val n = nodesInSystem(edges)
     var s = MSZ[A]() //Stack to keep track of nodes reachable from current node
     var index = Map.empty[A, Z] //index of each node
-    var lowLink = Map.empty[A, Z] //The smallest index reachable from the node
+    var lowLink: MSZ[Z] = MSZ.create(n, 100) //The smallest index reachable from the node
     var ret = MSZ[MSZ[A]]() //Keep track of SCC in graph
 
     def visit(v: A): Unit = {
       //Set index and lowlink of node on first visit
       index += (v ~> index.size)
-      lowLink += (v ~> index.get(v).get)
+      lowLink(index.get(v).get) = index.get(v).get
 
       //Add to stack
       s = s :+ v
@@ -74,15 +75,14 @@ import org.sireum.ops.{ISZOps, MSZOps}
         }
         if (s.elements.contains(w)) {
           // and since node w is a neighbor to node v there is also a path from v to w
-          val min = math.min(lowLink.get(w).get.toInt, lowLink.get(v).get.toInt)
+          val min = minLowlink(index, lowLink, v, w)
           //Remove old lowlink to replace it
-          lowLink -= (v ~> lowLink.get(v).get.toInt)
-          lowLink += (v ~> min)
+          lowLink(index.get(v).get) = min
         }
       })
 
       //The lowlink value haven't been updated meaning it is the root of a cycle/SCC
-      if (lowLink.get(v) == index.get(v)) {
+      if (lowLink(index.get(v).get) == index.get(v).get) {
         //Add the elements to the cycle that has been added to the stack and whose lowlink has been updated by node v's lowlink
         //This is the elements on the stack that is placed behind v
         val n = s.size - MSZOps[A](s).indexOf(v)
@@ -97,6 +97,22 @@ import org.sireum.ops.{ISZOps, MSZOps}
     return ret
   }
 
+
+  @pure def minLowlink(index: Map[A, Z], lowLink: MSZ[Z], v: A, w: A): Z = {
+    Contract(
+      Requires(
+        //Index should contain the two keys
+        index.contains(v) && index.contains(w) &&
+          //All values of the range of index should be a valid index for lowlink
+        All(index.values)((rangeVal:Z) => ISZOps(lowLink.indices).contains(rangeVal))),
+      Ensures(Res[Z] <= lowLink(index.get(w).get) && Res[Z] <= lowLink(index.get(v).get))
+    )
+    if (lowLink(index.get(v).get) > lowLink(index.get(w).get)) {
+      return lowLink(index.get(w).get)
+    } else {
+      return lowLink(index.get(v).get)
+    }
+  }
 
   @strictpure def nodesInSystem(edges: ISZ[Edge[A]]): Z =
     (Set.empty[A] ++ edges.map((x: Edge[A]) => x.from) ++ edges.flatMap((x: Edge[A]) => x.to.elements)).size
