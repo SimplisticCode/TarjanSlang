@@ -10,7 +10,7 @@ import org.sireum.ops.{ISZOps, MSZOps}
   @pure def inLoop(fromNode: A, targetNode: A, edges: ISZ[Edge[A]]): B = {
     //Connection from node we are searching from to targetNode
     edges.filter(e => e.from == fromNode && e.to.contains(targetNode)).nonEmpty ||
-      Exists(edges.filter(e => e.from == fromNode).flatMap((x : Edge[A]) => x.to.elements))(newStartNode => inLoop(newStartNode, targetNode, edges))
+      Exists(edges.filter(e => e.from == fromNode).flatMap((x: Edge[A]) => x.to.elements))(newStartNode => inLoop(newStartNode, targetNode, edges))
 
     // Base case There is a direct edge from fromNode to target
     // \E e1, e2 \in nodes * e1 == e2 /\ Edge(e1,e2)
@@ -27,12 +27,12 @@ import org.sireum.ops.{ISZOps, MSZOps}
           edges.nonEmpty &&
             //It is fine to only look at from nodes since all other vertices in graph
             //does not have an outgoing edge
-            !Exists(edges.map(x => x.from))(x => inLoop(x, x, edges))),
+            !Exists(edges.map((x: Edge[A]) => x.from))(x => inLoop(x, x, edges))),
         Ensures(
           //A list inside the nested result list should have a length of one (No SCC)
-          All(Res[MSZ[MSZ[A]]])(l => l.size == Z(1)) &&
+          All(Res[MSZ[MSZ[A]]])(l => l.size == 1) &&
             // All elements in the list should be unique
-            Z(Res[MSZ[MSZ[A]]].elements.distinct.size) == Res[MSZ[MSZ[A]]].size &&
+            (Set.empty[A] ++ (Res[MSZ[MSZ[A]]].flatMap((x: MSZ[A]) => x)).toIS).size == Res[MSZ[MSZ[A]]].size &&
             //The outer list of the result list should have the same length as the number of nodes in the graph
             Res[MSZ[MSZ[A]]].size == nodesInSystem(edges)
         )
@@ -41,14 +41,14 @@ import org.sireum.ops.{ISZOps, MSZOps}
         Requires(
           edges.nonEmpty &&
             //There should exist at least one node that is a part of a loop<
-            Exists(edges.map(x => x.from))(x => inLoop(x, x, edges))),
+            Exists(edges.map((x: Edge[A]) => x.from))(x => inLoop(x, x, edges))),
         Ensures(
           //All elements in a nested list (SCC) with a length >= 2 should be a part of a loop
-          All(Res[MSZ[MSZ[A]]].filter(x => x.size >= 2).flatMap(x => x))(e => inLoop(e, e, edges)) &&
+          All(Res[MSZ[MSZ[A]]].filter(x => x.size >= 2).flatMap((x: MSZ[A]) => x))(e => inLoop(e, e, edges)) &&
             //All elements that a not a part of a SCC (length < 2) should not be in a loop
-            All(Res[MSZ[MSZ[A]]].filter(x => x.size < 2).flatMap(x => x))(e => !inLoop(e, e, edges)) &&
+            All(Res[MSZ[MSZ[A]]].filter(x => x.size < 2).flatMap((x: MSZ[A]) => x))(e => !inLoop(e, e, edges)) &&
             //All nodes in the graph should be represented in the final result
-            nodesInSystem(edges) == Res[MSZ[MSZ[A]]].flatMap(x => x).size
+            nodesInSystem(edges) == Res[MSZ[MSZ[A]]].flatMap((x: MSZ[A]) => x).size
           // TODO: Add post condition to make sure that all loops in the graph have been detected
           //  this means that the right numbers of loops/SCC (length >= 2) are found and put in the result
         )
@@ -65,19 +65,27 @@ import org.sireum.ops.{ISZOps, MSZOps}
       lowLink += (v ~> index.get(v).get)
 
       //Add to stack
-      s = s:+v
+      s = s ++ MSZ(v)
 
       edges.filter(o => o.from == v).flatMap(o => o.to.elements).foreach(w => {
         if (!index.contains(w)) {
           //Perform DFS from node W, if node w is not explored yet
           visit(w)
-        }
-        if (s.elements.contains(w)) {
-          // and since node w is a neighbor to node v there is also a path from v to w
           val min = math.min(lowLink.get(w).get.toInt, lowLink.get(v).get.toInt)
           //Remove old lowlink to replace it
           lowLink -= (v ~> lowLink.get(v).get.toInt)
           lowLink += (v ~> min)
+        }
+        else if (s.elements.contains(w)) {
+          // and since node w is a neighbor to node v there is also a path from v to w
+
+          val min = math.min(lowLink.get(w).get.toInt, lowLink.get(v).get.toInt)
+          //Remove old lowlink to replace it
+          lowLink -= (v ~> lowLink.get(v).get.toInt)
+          lowLink += (v ~> min)
+        } else {
+          val a: Z = 2
+          assert(a == Z(2))
         }
       })
 
@@ -93,20 +101,25 @@ import org.sireum.ops.{ISZOps, MSZOps}
     }
 
     //Perform a DFS from  all no nodes that hasn't been explored
-    src.foreach(v => if (!index.contains(v.from)) visit(v.from))
+    src.foreach((v: Edge[A]) =>
+      if (!index.contains(v.from)) {
+        visit(v.from)
+      } else {
+        val a: Z = 2
+        assert(a == 2)
+      })
     return ret
   }
 
+  @strictpure def nodesInSystem(edges: ISZ[Edge[A]]): Z =
+    return (Set.empty[A] ++ edges.map((x: Edge[A]) => x.from) ++ edges.flatMap((x: Edge[A]) => x.to.elements)).size
+}
 
-  def nodesInSystem(edges: ISZ[Edge[A]]): Z = {
-    return (Set.empty[A] ++ edges.map(x => x.from) ++ edges.flatMap(x => x.to.elements)).size
-  }
+//val tarjan: MSZ[MSZ[A]] = tarjanAlgo(src)
 
-  val tarjan: MSZ[MSZ[A]] = tarjanAlgo(src)
-
-  val hasCycle: B = tarjan.elements.exists(c => c.size >= 2)
-  val tarjanCycle: Seq[MSZ[A]] = tarjan.elements.filter(c => c.size >= 2).distinct.map(c => c)
-
+//val hasCycle: B = tarjan.elements.exists(c => c.size >= 2)
+//val tarjanCycle: ISZ[MSZ[A]] = tarjan.elements.filter(c => c.size >= 2).distinct.map(c => c)
+/*
   def topologicalSort(edges: ISZ[Edge[A]]): ISZ[A] = {
     Contract(
       Case("Graph contains cycles so a topological ordering cannot be found. The function shall instead return a list with all the SCC/loops",
@@ -123,7 +136,7 @@ import org.sireum.ops.{ISZOps, MSZOps}
           //There should be no element at an index > n, that has a connection to a component placed at index n
           All(Res[ISZ[A]].indices)(n => !Exists(Res[ISZ[A]].indices)(j => j > n && inLoop(Res[ISZ[A]](j), Res[ISZ[A]](n), edges))) &&
             //All elements/vertices in the graph should be in the resulting list
-            Res[MSZ[MSZ[A]]].size == nodesInSystem(edges)
+            Res[MSZ[MSZ[A]]].length == nodesInSystem(edges)
         )
       )
     )
@@ -131,8 +144,8 @@ import org.sireum.ops.{ISZOps, MSZOps}
       return ISZ[A]()
     }
     else {
-      return MSZOps(tarjan.flatMap(x => x)).reverse.toIS
+      return MSZOps(tarjanAlgo(edges).flatMap(x => x)).reverse.toIS
     }
   }
 }
-
+*/
