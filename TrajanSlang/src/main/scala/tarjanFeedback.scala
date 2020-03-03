@@ -1,12 +1,10 @@
 // #Sireum
 
-import org.sireum._
-import org.sireum.ops.{ISZOps, MSZOps, GraphOps}
-import scala.collection.mutable.Stack
+import org.sireum.{HashSMap, _}
+import org.sireum.ops.{ISZOps}
 
 
 @record class TarjanGraphFeedback[A](src: ISZ[Edge[A]]) {
-
   type Index = Z
 
   @pure def inLoop(fromNode: A, targetNode: A, edges: ISZ[Edge[A]]): B = {
@@ -21,18 +19,26 @@ import scala.collection.mutable.Stack
     // \E
   }
 
-  def allNodes(edges: ISZ[Edge[A]]): ISZ[A] = {
+  def allNodes(edges: ISZ[Edge[A]]): HashSMap[A, Index] = {
     var nodes = Set.empty[A] ++ (for (e <- edges) yield e.from)
     for (e <- edges.elements) {
-      nodes.union(e.to)
+      nodes = nodes.union(e.to)
     }
-    return nodes.elements
+    return HashSMap.empty[A, Index] ++ (for (i <- nodes.elements.indices) yield (nodes.elements(i), i + 1))
   }
 
-  val nodes: ISZ[A] = allNodes(src)
+  val nodes: HashSMap[A, Index] = allNodes(src)
+  val nodesInverse: HashSMap[Index, A] = HashSMap.empty[Index, A] ++ (for (n <- nodes.entries) yield (n._2, n._1))
+  val edges: HashSMap[Index, HashSSet[Z]] = transformEdges(src)
+
+  def transformEdges(src: _root_.org.sireum.ISZ[Edge[A]]): HashSMap[Index, HashSSet[Index]] = {
+    return HashSMap.empty[Index, HashSSet[Index]] ++ (for (e <- src) yield ((nodes.get(e.from).get, HashSSet.empty[Index] ++ (for (i <- e.to.elements) yield (nodes.get(i).get)))))
+  }
+
 
   //Linear over number of veritices and edges: O(V + E)
-  @pure def tarjanAlgo(edges: ISZ[Edge[A]]): Set[ISZ[A]] = {
+  @pure def tarjanAlgo(): Set[ISZ[A]] = {
+    /*
     Contract(
       Case("No loops in graph",
         Requires(
@@ -68,72 +74,72 @@ import scala.collection.mutable.Stack
         )
       )
     )
-    var ret = Set.empty[ISZ[A]] //Keep track of SCC in graph
-    val index: HashSMap[A, Index] = HashSMap.empty[A, Index] ++ (for (i <- nodes.indices) yield (nodes(i), i + 1))
-    var lowLink: ISZ[Index] = index.values
-    var exploredNodes = 0
-    var stack = ISZ[A]() //Stack to keep track of nodes reachable from current node
+     */
+    var ret = Set.empty[ISZ[Index]] //Keep track of SCC in graph
+    var lowLink: HashSMap[Index, Index] = HashSMap.empty[Index, Index] ++ (for (n <- nodes.values) yield (n, n))
+    var exploredNodes: Z = 0
+    var stack = ISZ[Index]()
 
-    def visit(v: A): Unit = {
-      stack = stack :+ (v)
+    def visit(v: Index): Unit = {
+      stack = stack:+(v)
       exploredNodes += 1
-      for (w <- getSuccessors(v, edges)) {
-        if (index.get(w).get > exploredNodes) {
+      for (w <- getSuccessors(v)) {
+        if (w > exploredNodes) {
           //Perform DFS from node W, if node w is not explored yet
           visit(w)
         }
         if (ISZOps(stack).contains(w)) {
           // and since node w is a neighbor to node v there is also a path from v to w
-          val min = if (lowLink(index.get(w)) > index.get(v)) lowLink(v) else lowLink(v)
+          val min = findMinLowlink(w, v, lowLink)
           //Remove old lowlink to replace it
-          lowLink(v) = min
+          lowLink = lowLink + (v ~> min)
         }
-
-        //The lowlink value haven't been updated meaning it is the root of a cycle/SCC
-        if (lowLink(index.get(v)) == index.get(v)) {
-          //Add the elements to the cycle that has been added to the stack and whose lowlink has been updated by node v's lowlink
-          //This is the elements on the stack that is placed behind v
-          val n = stack.size - ISZOps[A](stack).indexOf(v)
-          ret += ISZOps[A](stack).takeRight(n)
-          //Remove these elements from the stack
-          stack = ISZOps[A](stack).dropRight(n)
-        }
+      }
+      //The lowlink value haven't been updated meaning it is the root of a cycle/SCC
+      if (lowLink.get(v).get == v) {
+        //Add the elements to the cycle that has been added to the stack and whose lowlink has been updated by node v's lowlink
+        //This is the elements on the stack that is placed behind v
+        val n = stack.size - ISZOps[Index](stack).indexOf(v)
+        ret += ISZOps[Index](stack).takeRight(n)
+        //Remove these elements from the stack
+        stack = ISZOps[Index](stack).dropRight(n)
       }
     }
 
     //Perform a DFS from  all no nodes that hasn't been explored
-    for (v <- nodes) {
-      if (index.get(v).get > exploredNodes) {
-        visit(v)
+    for (v <- nodes.entries) {
+      if (nodes.get(v._1).get > exploredNodes) {
+        visit(v._2)
       }
     }
-    return ret
+
+    return Set.empty[ISZ[A]] ++ (for (e <- ret.elements) yield (for (i <- e) yield nodesInverse.get(i).get))
   }
 
-  //Todo write contract
-  @pure def getSuccessors[A](v: A, edges: ISZ[Edge[A]]): ISZ[A] = {
-    findEdge(v, edges) match {
-      case Some(edge) => return edge.to.elements
-      case None() => return ISZ[A]()
+  def getSuccessors(v: Index): ISZ[Index] = {
+    edges.get(v) match {
+      case Some(n) => return n.elements
+      case _ => return ISZ[Index]()
     }
   }
 
-  //Todo write contract
-  @pure def findEdge[A](v: A, edges: _root_.org.sireum.ISZ[Edge[A]]): Option[Edge[A]] = {
-    for (e <- edges) {
-      if (e.from == v) {
-        return Some(e)
-      }
-    }
-    return None()
+  @pure def findMinLowlink(w: Index, v: Index, lowLink: HashSMap[Index, Index]): Index = {
+    if (lowLink.get(w).get > lowLink.get(v).get)
+      return lowLink.get(v).get
+    else
+      return lowLink.get(w).get
   }
 
-  val tarjan: Set[ISZ[A]] = tarjanAlgo(src)
+  @pure def size: Z = {
+    return nodes.size
+  }
+
+  val tarjan: Set[ISZ[A]] = tarjanAlgo()
+
+  val tarjanCycle: ISZ[ISZ[A]] = tarjan.elements.filter(c => c.size >= 2)
+
 
   val hasCycle: B = ISZOps(tarjan.elements).exists(c => c.size >= 2)
-
-  @strictpure def nodesInSystem(edges: ISZ[Edge[A]]): Z =
-    (Set.empty[A] ++ edges.map((x: Edge[A]) => x.from) ++ edges.flatMap((x: Edge[A]) => x.to.elements)).size
 
 }
 

@@ -35,7 +35,7 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
 
 
   "Tarjan Graph with two loops" should "report two algebraic loops" in {
-    val edge5: Edge[Z] = Edge(4, Set.empty ++ ISZ(5))
+    val edge5: Edge[Z] = Edge(4, Set.empty ++ ISZ(5, 1))
     val edge6: Edge[Z] = Edge(5, Set.empty ++ ISZ(6))
     val edge7: Edge[Z] = Edge(6, Set.empty ++ ISZ(7))
     val edge8: Edge[Z] = Edge(7, Set.empty ++ ISZ(5))
@@ -43,7 +43,7 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
     val edges: Set[Edge[Z]] = allEdges ++ ISZ(edge5, edge6, edge7, edge8)
     val g = new TarjanGraphFeedback[Z](edges.elements)
     assert(g.hasCycle)
-    //assert(g.tarjanCycle.size == 2)
+    assert(g.tarjanCycle.size == 2)
   }
 
 
@@ -69,16 +69,24 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
     assert(g.hasCycle)
   }
 
-  "Tarjan BigGrahp 10000+ edges" should "report AN algebraic loop" in {
-    val alotOfEdges = generateEdges(10000) ++ ISZ(Edge(10000, Set.empty ++ ISZ(1)))
+   "Tarjan BigGrahp 10+ edges" should "report NO algebraic loop" in {
+    val alotOfEdges = generateEdges(10)
     val g = new TarjanGraphFeedback[Z](alotOfEdges.elements)
-    assert(g.hasCycle)
+    assert(!g.hasCycle)
   }
 
   "Tarjan BigGrahp 1000+ edges" should "report NO algebraic loop" in {
-    val alotOfEdges = generateEdges(10001)
+    val alotOfEdges = generateEdges(1000)
     val g = new TarjanGraphFeedback[Z](alotOfEdges.elements)
     assert(!g.hasCycle)
+  }
+
+  "Tarjan BigGrahp 10000+ edges" should "report NO algebraic loop" in {
+    val alotOfEdges = generateEdges(50001)
+    time {
+      val g = new TarjanGraphFeedback[Z](alotOfEdges.elements)
+      assert(!g.hasCycle)
+    }
   }
 
   def time[R](block: => R): R = {
@@ -87,18 +95,6 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
     val t1 = System.nanoTime()
     println("Elapsed time: " + (t1 - t0) + "ns")
     result
-  }
-
-  @tailrec
-  private def generateSlangEdges(n: Z, graph: Graph[Z, Z] = Graph.empty[Z,Z]): Graph[Z, Z] = {
-    if (n == Z(0)) graph
-    else generateSlangEdges(n - 1, graph.addPlainEdge(n - 1, n))
-  }
-
-  "Tarjan BigGrahp 100000+ edges" should "report NO algebraic loop" in {
-    val graph = generateSlangEdges(100000)
-    val cycles = GraphOps(graph).getCycles
-    val a = 2
   }
 
   /*
