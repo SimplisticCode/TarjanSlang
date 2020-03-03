@@ -55,7 +55,7 @@ class TarjanAlgorithmMapsAsEdges extends FlatSpec with Matchers {
     assert(g.hasCycle)
   }
 
-  "Tarjan BigGrahp 10000+ edges" should "report AN algebraic loop" ignore {
+  "Tarjan BigGrahp 10000+ edges" should "report AN algebraic loop" in {
     val alotOfEdges = generateMapEdges(10000) + (10000 ~> (Set.empty ++ ISZ(1)))
     val g = new TarjanGraphMapsAsEdges[Z](alotOfEdges)
     assert(g.hasCycle)

@@ -68,7 +68,7 @@ import org.sireum.ops.{ISZOps, MSZOps}
       //Add to stack
       s = s ++ MSZ(v)
 
-      edges.filter((o:Edge[A]) => o.from == v).flatMap((o: Edge[A]) => o.to.elements).foreach((w: A) => {
+      edges.filter((o: Edge[A]) => o.from == v).flatMap((o: Edge[A]) => o.to.elements).foreach((w: A) => {
         if (!index.contains(w)) {
           //Perform DFS from node W, if node w is not explored yet
           visit(w)
@@ -109,20 +109,25 @@ import org.sireum.ops.{ISZOps, MSZOps}
     return ret
   }
 
-
-  @pure def minLowlink(index: Map[A, Z], lowLink: MSZ[Z], v: A, w: A): Z = {
+  //I couldn't verify this function
+  @pure def minLowlink(index1: Z, index2: Z, lowLink: ISZ[Z]): Z = {
     Contract(
       Requires(
         //Index should contain the two keys
-        index.contains(v) && index.contains(w) &&
+        lowLink.size > index1,
+          index1 >= 0,
+          lowLink.size > index2,
+          index2 >= 0
+        //Exists(lowLink.indices)(i => i == index1) &&
+          //Exists(lowLink.indices)(i => i == index2)
           //All values of the range of index should be a valid index for lowlink
-          All(index.values)((rangeVal:Z) => ISZOps(lowLink.indices).contains(rangeVal))),
-      Ensures(Res[Z] <= lowLink(index.get(w).get) && Res[Z] <= lowLink(index.get(v).get))
+      )
+      , Ensures(Res[Z] <= lowLink(index1) && Res[Z] <= lowLink(index2))
     )
-    if (lowLink(index.get(v).get) > lowLink(index.get(w).get)) {
-      return lowLink(index.get(w).get)
+    if (lowLink(index1) > lowLink(index2)) {
+      return lowLink(index2)
     } else {
-      return lowLink(index.get(v).get)
+      return lowLink(index1)
     }
   }
 

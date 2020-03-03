@@ -3,6 +3,7 @@
 import org.sireum._
 import org.sireum.ops.{ISZOps, MSZOps}
 
+//TODO: look in to Slang specification about collection types
 @record class TarjanGraphMapsAsEdges[A](src: Map[A, Set[A]]) {
 
   @pure def inLoop(fromNode: A, targetNode: A, edges: Map[A, Set[A]]): B = {
