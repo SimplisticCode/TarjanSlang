@@ -1,16 +1,20 @@
 // #Sireum
 
-import org.sireum.{HashSMap, _}
-import org.sireum.ops.{ISZOps}
+import org.sireum._
+import org.sireum.ops.ISZOps
 
 
 @record class TarjanGraphFeedback[A](src: ISZ[Edge[A]]) {
   type Index = Z
 
-  @pure def inLoop(fromNode: A, targetNode: A, edges: ISZ[Edge[A]]): B = {
+  @pure def inLoop(fromNode: Index, targetNode: Index): B = {
     //Connection from node we are searching from to targetNode
-    edges.filter(e => e.from == fromNode && e.to.contains(targetNode)).nonEmpty ||
-      Exists(edges.filter(e => e.from == fromNode).flatMap((x: Edge[A]) => x.to.elements))(newStartNode => inLoop(newStartNode, targetNode, edges))
+    val neighbours: ISZ[Index] = edges.get(fromNode) match {
+      case Some(neighbours) => neighbours.elements
+      case _ => return F
+    }
+
+    return ISZOps(neighbours).contains(targetNode) || Exists(neighbours)(newStart => inLoop(newStart, targetNode))
 
     // Base case There is a direct edge from fromNode to target
     // \E e1, e2 \in nodes * e1 == e2 /\ Edge(e1,e2)
@@ -32,7 +36,19 @@ import org.sireum.ops.{ISZOps}
   val edges: HashSMap[Index, HashSSet[Z]] = transformEdges(src)
 
   def transformEdges(src: _root_.org.sireum.ISZ[Edge[A]]): HashSMap[Index, HashSSet[Index]] = {
-    return HashSMap.empty[Index, HashSSet[Index]] ++ (for (e <- src) yield ((nodes.get(e.from).get, HashSSet.empty[Index] ++ (for (i <- e.to.elements) yield (nodes.get(i).get)))))
+    var e = HashSMap.empty[Index, HashSSet[Index]]
+    time {
+      e = HashSMap.empty[Index, HashSSet[Index]] ++ (for (e <- src) yield ((nodes.get(e.from).get, HashSSet.empty[Index] ++ (for (i <- e.to.elements) yield (nodes.get(i).get)))))
+    }
+    return e
+  }
+
+  def time[R](block: => R): R = {
+    val t0 = System.nanoTime()
+    val result = block // call-by-name
+    val t1 = System.nanoTime()
+    println("Elapsed time: " + (t1 - t0).toString + "ns")
+    return result
   }
 
 
@@ -76,12 +92,15 @@ import org.sireum.ops.{ISZOps}
     )
      */
     var ret = Set.empty[ISZ[Index]] //Keep track of SCC in graph
-    var lowLink: HashSMap[Index, Index] = HashSMap.empty[Index, Index] ++ (for (n <- nodes.values) yield (n, n))
+    var lowLink: HashSMap[Index, Index] = HashSMap.empty[Index, Index]
+    time {
+      lowLink = HashSMap.empty[Index, Index] ++ (for (n <- nodes.values) yield (n, n))
+    }
     var exploredNodes: Z = 0
     var stack = ISZ[Index]()
 
     def visit(v: Index): Unit = {
-      stack = stack:+(v)
+      stack = stack :+ (v)
       exploredNodes += 1
       for (w <- getSuccessors(v)) {
         if (w > exploredNodes) {
@@ -114,6 +133,7 @@ import org.sireum.ops.{ISZOps}
     }
 
     return Set.empty[ISZ[A]] ++ (for (e <- ret.elements) yield (for (i <- e) yield nodesInverse.get(i).get))
+
   }
 
   def getSuccessors(v: Index): ISZ[Index] = {
@@ -123,11 +143,13 @@ import org.sireum.ops.{ISZOps}
     }
   }
 
+  //TODO Contract
   @pure def findMinLowlink(w: Index, v: Index, lowLink: HashSMap[Index, Index]): Index = {
-    if (lowLink.get(w).get > lowLink.get(v).get)
+    if (lowLink.get(w).get > lowLink.get(v).get) {
       return lowLink.get(v).get
-    else
+    } else {
       return lowLink.get(w).get
+    }
   }
 
   @pure def size: Z = {
@@ -138,8 +160,38 @@ import org.sireum.ops.{ISZOps}
 
   val tarjanCycle: ISZ[ISZ[A]] = tarjan.elements.filter(c => c.size >= 2)
 
-
   val hasCycle: B = ISZOps(tarjan.elements).exists(c => c.size >= 2)
 
+
+  def topologicalSort(): ISZ[A] = {
+    Contract(
+      Case("Graph contains cycles so a topological ordering cannot be found. The function shall instead return a list with all the SCC/loops",
+        Requires(
+          edges.nonEmpty &&
+            Exists(edges.getKeys)(x => inLoop(x, x))),
+        Ensures(Res[ISZ[A]].isEmpty)
+      ),
+      Case("Graphs contains no loops",
+        Requires(
+          edges.nonEmpty &&
+            !Exists(edges.getKeys)(x => inLoop(x, x))),
+        Ensures(
+          //There should be no element at an index > n, that has a connection to a component placed at index n
+          All(Res[ISZ[A]].indices)(n => !Exists(Res[ISZ[A]].indices)(j => j > n && inLoop(nodes.get(Res[ISZ[A]](j)).get, nodes.get(Res[ISZ[A]](n)).get)) &&
+            //All elements/vertices in the graph should be in the resulting list
+            Res[MSZ[MSZ[A]]].size == size
+          )
+        )
+      )
+    )
+
+    if (hasCycle) {
+      return ISZ[A]()
+    }
+    else {
+      return ISZOps(tarjan.elements.flatMap(x => x)).reverse
+      //return ISZOps(for (s <- tarjan.elements) yield (for (e <- s) yield (e))).reverse
+    }
+  }
 }
 

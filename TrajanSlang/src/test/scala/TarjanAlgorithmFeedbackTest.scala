@@ -1,6 +1,5 @@
 import org.scalatest.{FlatSpec, Matchers}
 import org.sireum._
-import org.sireum.ops.{GraphOps, ISZOps}
 
 import scala.annotation.tailrec
 
@@ -82,6 +81,14 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
   }
 
   "Tarjan BigGrahp 10000+ edges" should "report NO algebraic loop" in {
+    val alotOfEdges = generateEdges(10001)
+    time {
+      val g = new TarjanGraphFeedback[Z](alotOfEdges.elements)
+      assert(!g.hasCycle)
+    }
+  }
+
+  "Tarjan BigGrahp 50000+ edges" should "report NO algebraic loop" in {
     val alotOfEdges = generateEdges(50001)
     time {
       val g = new TarjanGraphFeedback[Z](alotOfEdges.elements)
@@ -101,7 +108,7 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
     "Topological sort" should "report that no topological order can be found, since there is a loop in the graph" in {
       val g = new TarjanGraphFeedback[Z](allEdges.elements)
       assert(g.hasCycle)
-      val order = g.topologicalSort(allEdges.elements)
+      val order = g.topologicalOrder(allEdges.elements)
       assert(order.isEmpty)
     }
 
@@ -109,7 +116,7 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
       val edges = generateEdges(11)
       val g = new TarjanGraphFeedback[Z](edges.elements)
       assert(!g.hasCycle)
-      val order = g.topologicalSort(edges.elements)
+      val order = g.topologicalOrder(edges.elements)
       assert(order.nonEmpty)
       val expectedTopologicalOrder = ISZ[Z](0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
       assert(order == expectedTopologicalOrder)
@@ -119,7 +126,7 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
       val edges = generateEdgesDec(11)
       val g = new TarjanGraph[Z](edges.elements)
       assert(!g.hasCycle)
-      val order = g.topologicalSort(edges.elements)
+      val order = g.topologicalOrder(edges.elements)
       assert(order.nonEmpty)
       val expectedTopologicalOrder = ISZOps(ISZ[Z](0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)).reverse
       assert(order == expectedTopologicalOrder)
@@ -139,7 +146,7 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
       val g = new TarjanGraph[C](graphEdges.elements)
       assert(!g.hasCycle)
       val expectedOrder = ISZ[C]('C', 'A', 'D', 'F', 'B', 'E', 'G', 'I', 'H', 'J')
-      val order = g.topologicalSort(graphEdges.elements)
+      val order = g.topologicalOrder(graphEdges.elements)
       println(order)
       assert(order == expectedOrder)
       //This in from the post-condition of the function for doing the topological sorting
