@@ -1,5 +1,6 @@
 import org.scalatest.{FlatSpec, Matchers}
 import org.sireum._
+import org.sireum.ops.{GraphOps, ISZOps}
 
 import scala.annotation.tailrec
 
@@ -25,6 +26,13 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
     if (n == Z(0)) edges
     else generateEdgesDec(n - 1, edges ++ ISZ(Edge(n, Set.empty ++ ISZ(n - 1))))
   }
+
+  @tailrec
+  private def generateSlangEdges(n:  Z, graph: Graph[Z,Z] = Graph.empty[Z,Z]()): Graph[Z,Z] ={
+    if (n == Z(0)) graph
+    else generateSlangEdges(n - 1, graph.addPlainEdge(n, n-1))
+  }
+
 
 
   "Tarjan " should "report an algebraic loop" in {
@@ -80,7 +88,7 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
     assert(!g.hasCycle)
   }
 
-  "Tarjan BigGrahp 10000+ edges" should "report NO algebraic loop" in {
+  "Tarjan BigGrahp 10000+ edges" should "report NO algebraic loop" in  {
     val alotOfEdges = generateEdges(10001)
     time {
       val g = new TarjanGraphFeedback[Z](alotOfEdges.elements)
@@ -88,7 +96,35 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
     }
   }
 
-  "Tarjan BigGrahp 50000+ edges" should "report NO algebraic loop" in {
+
+  "Tarjan BigGrahp 20000+ edges" should "report NO algebraic loop" in  {
+    val alotOfEdges = generateEdges(20001)
+    time {
+      val g = new TarjanGraphFeedback[Z](alotOfEdges.elements)
+      assert(!g.hasCycle)
+    }
+  }
+
+  "Tarjan BigGrahp 750+ edges" should "report NO algebraic loop" in {
+    val alotOfEdges = generateEdges(751)
+    time {
+      val g = new TarjanGraphFeedback[Z](alotOfEdges.elements)
+      assert(!g.hasCycle)
+    }
+  }
+
+  //You need to add a check that your algorithm that actually guarantees mutual exclusion in the cirtical section
+
+  "Tarjan BigGrahp 10000+ edges GraphOps" should "report NO algebraic loop" ignore  {
+    val graph = generateSlangEdges(751)
+    time {
+      val g = new GraphOps(graph).getCycles
+      assert(g.isEmpty)
+    }
+  }
+
+
+  "Tarjan BigGrahp 50000+ edges" should "report NO algebraic loop" ignore  {
     val alotOfEdges = generateEdges(50001)
     time {
       val g = new TarjanGraphFeedback[Z](alotOfEdges.elements)
@@ -104,11 +140,11 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
     result
   }
 
-  /*
+
     "Topological sort" should "report that no topological order can be found, since there is a loop in the graph" in {
       val g = new TarjanGraphFeedback[Z](allEdges.elements)
       assert(g.hasCycle)
-      val order = g.topologicalOrder(allEdges.elements)
+      val order = g.topologicalSort
       assert(order.isEmpty)
     }
 
@@ -116,7 +152,7 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
       val edges = generateEdges(11)
       val g = new TarjanGraphFeedback[Z](edges.elements)
       assert(!g.hasCycle)
-      val order = g.topologicalOrder(edges.elements)
+      val order = g.topologicalSort
       assert(order.nonEmpty)
       val expectedTopologicalOrder = ISZ[Z](0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
       assert(order == expectedTopologicalOrder)
@@ -124,9 +160,9 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
 
     "Topological sort" should "report the topological order of the graph (The topological order is descending)" in {
       val edges = generateEdgesDec(11)
-      val g = new TarjanGraph[Z](edges.elements)
+      val g = new TarjanGraphFeedback[Z](edges.elements)
       assert(!g.hasCycle)
-      val order = g.topologicalOrder(edges.elements)
+      val order = g.topologicalSort
       assert(order.nonEmpty)
       val expectedTopologicalOrder = ISZOps(ISZ[Z](0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)).reverse
       assert(order == expectedTopologicalOrder)
@@ -143,15 +179,13 @@ class TarjanAlgorithmFeedbackTest extends FlatSpec with Matchers {
       val H: Edge[C] = Edge('H', Set.empty ++ ISZ('J'))
 
       val graphEdges = Set.empty ++ ISZ(A, B, C, D, E, F, G, H)
-      val g = new TarjanGraph[C](graphEdges.elements)
+      val g = new TarjanGraphFeedback[C](graphEdges.elements)
       assert(!g.hasCycle)
       val expectedOrder = ISZ[C]('C', 'A', 'D', 'F', 'B', 'E', 'G', 'I', 'H', 'J')
-      val order = g.topologicalOrder(graphEdges.elements)
+      val order = g.topologicalSort
       println(order)
       assert(order == expectedOrder)
       //This in from the post-condition of the function for doing the topological sorting
-      assert(All(order.indices)(n => !Exists(order.indices)(j => j > n && g.inLoop(order(j), order(n), graphEdges.elements))))
+      assert(All(order.indices)(n => !Exists(order.indices)(j => j > n && g.inLoop(g.nodes.get(order(j)).get, g.nodes.get(order(n)).get))))
     }
-
-  */
 }

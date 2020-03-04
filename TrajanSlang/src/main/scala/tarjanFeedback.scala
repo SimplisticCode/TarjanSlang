@@ -54,56 +54,54 @@ import org.sireum.ops.ISZOps
 
   //Linear over number of veritices and edges: O(V + E)
   @pure def tarjanAlgo(): Set[ISZ[A]] = {
-    /*
+
     Contract(
       Case("No loops in graph",
         Requires(
-          edges.nonEmpty &&
+          edges.size > 0 &&
             //It is fine to only look at from nodes since all other vertices in graph
             //does not have an outgoing edge
-            !Exists(edges.map(x => x.from))(x => inLoop(x, x, edges))),
+            !Exists(nodes.values)(x => inLoop(x, x))),
         Ensures(
           //A list inside the nested result list should have a length of one (No SCC)
-          All(Res[MSZ[MSZ[A]]])(l => l.size == 1) &&
+          All(Res[Set[ISZ[A]]].elements)(l => l.size == Z(1)) &&
             // All elements in the list should be unique
-            (Set.empty[A] ++ (Res[MSZ[MSZ[A]]].flatMap((x: MSZ[A]) => x)).toIS).size == Res[MSZ[MSZ[A]]].size &&
+            (Set.empty[A] ++ (Res[Set[ISZ[A]]].elements.flatMap((x: ISZ[A]) => x))).size == Res[Set[ISZ[A]]].size &&
             //The outer list of the result list should have the same length as the number of nodes in the graph
-            Res[MSZ[MSZ[A]]].size == nodesInSystem(edges)
+            Res[Set[ISZ[A]]].size == size
         )
       ),
       Case("Loops in graph",
         Requires(
-          edges.nonEmpty &&
+          edges.size > 0 &&
             //There should exist at least one node that is a part of a loop<
-            Exists(edges.map(x => x.from))(x => inLoop(x, x, edges))),
+            Exists(nodes.values)(x => inLoop(x, x))
+        ),
         Ensures(
           //All elements in a nested list (SCC) with a length >= 2 should be a part of a loop
-          All(Res[MSZ[MSZ[A]]].filter(x => x.size >= 2).flatMap((x: MSZ[A]) => x))(e => inLoop(e, e, edges)) &&
+          All(Res[Set[ISZ[A]]].elements.filter(x => x.size >= 2).flatMap((x: ISZ[A]) => x).map(x => nodes.get(x).get))(e => inLoop(e, e)) &&
             //All elements that a not a part of a SCC (length < 2) should not be in a loop
-            All(Res[MSZ[MSZ[A]]].filter(x => x.size < 2).flatMap((x: MSZ[A]) => x))(e => !inLoop(e, e, edges)) &&
+            All(Res[Set[ISZ[A]]].elements.filter(x => x.size < 2).flatMap((x: ISZ[A]) => x).map(x => nodes.get(x).get))(e => !inLoop(e, e)) &&
             //All nodes in the graph should be represented in the final result
-            nodesInSystem(edges) == Res[MSZ[MSZ[A]]].flatMap((x: MSZ[A]) => x).size
+            size == Res[Set[ISZ[A]]].elements.flatMap((x: ISZ[A]) => x).size
             //All elements in a loop/SCC should  be strongly connected with each other.
-            && All(Res[MSZ[MSZ[A]]].filter(x => x.size >= 2))(s => All(s)(e1 => All(s.filter(e => e != e1))(e2 => inLoop(e1, e2, edges))))
+            && All(Res[Set[ISZ[A]]].elements.filter(x => x.size >= 2))(s => All(s)(e1 => All(s.filter(e => e != e1))(e2 => inLoop(nodes.get(e1).get, nodes.get(e2).get))))
           // TODO: Add post condition to make sure that all loops in the graph have been detected
           //  this means that the right numbers of loops/SCC (length >= 2) are found and put in the result
         )
       )
     )
-     */
+
     var ret = Set.empty[ISZ[Index]] //Keep track of SCC in graph
-    var lowLink: HashSMap[Index, Index] = HashSMap.empty[Index, Index]
-    time {
-      lowLink = HashSMap.empty[Index, Index] ++ (for (n <- nodes.values) yield (n, n))
-    }
-    var exploredNodes: Z = 0
+    var lowLink = HashSMap.empty[Index, Index] ++ (for (n <- nodes.values) yield (n, n))
+    var exploredNodes = HashSet.empty[Index]
     var stack = ISZ[Index]()
 
     def visit(v: Index): Unit = {
       stack = stack :+ (v)
-      exploredNodes += 1
+      exploredNodes += v
       for (w <- getSuccessors(v)) {
-        if (w > exploredNodes) {
+        if (!exploredNodes.contains(w)) {
           //Perform DFS from node W, if node w is not explored yet
           visit(w)
         }
@@ -127,7 +125,7 @@ import org.sireum.ops.ISZOps
 
     //Perform a DFS from  all no nodes that hasn't been explored
     for (v <- nodes.entries) {
-      if (nodes.get(v._1).get > exploredNodes) {
+      if (!exploredNodes.contains(nodes.get(v._1).get)) {
         visit(v._2)
       }
     }
@@ -179,7 +177,7 @@ import org.sireum.ops.ISZOps
           //There should be no element at an index > n, that has a connection to a component placed at index n
           All(Res[ISZ[A]].indices)(n => !Exists(Res[ISZ[A]].indices)(j => j > n && inLoop(nodes.get(Res[ISZ[A]](j)).get, nodes.get(Res[ISZ[A]](n)).get)) &&
             //All elements/vertices in the graph should be in the resulting list
-            Res[MSZ[MSZ[A]]].size == size
+            Res[ISZ[A]].size == size
           )
         )
       )
